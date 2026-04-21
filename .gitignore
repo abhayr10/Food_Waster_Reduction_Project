@@ -1,0 +1,27 @@
+# Node.js / React Frontend dependencies
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Python / Flask Backend dependencies
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Security concerns (never push .env)
+.env
+backend/.env
+frontend/.env
+*.env
+
+# OS generated files
+.DS_Store
+Thumbs.db
