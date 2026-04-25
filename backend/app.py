@@ -340,5 +340,51 @@ def update_donation_status(donation_id, action):
     finally:
         conn.close()
 
+@app.route('/api/donations/donor/<int:donor_id>/stats', methods=['GET'])
+def get_donor_stats(donor_id):
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"status": "Error", "message": "Database connection failed"}), 500
+        
+    try:
+        with conn.cursor() as cur:
+            # Count successfully completed or confirmed donations
+            cur.execute("""
+                SELECT COUNT(*) FROM donations 
+                WHERE donor_id = %s AND status IN ('Completed', 'Confirmed')
+            """, (donor_id,))
+            completed_count = cur.fetchone()[0]
+            
+            # Gamification Logic
+            badges = []
+            if completed_count >= 1:
+                badges.append({
+                    "id": "first_donation", 
+                    "name": "First Donation!", 
+                    "icon": "Medal", 
+                    "color": "text-yellow-500",
+                    "description": "Successfully completed your first food donation."
+                })
+            if completed_count >= 5:
+                badges.append({
+                    "id": "zero_waste_hero", 
+                    "name": "Zero-Waste Hero", 
+                    "icon": "ShieldCheck",
+                    "color": "text-green-500", 
+                    "description": "Completed 5 or more successful donations."
+                })
+            
+            return jsonify({
+                "status": "Success", 
+                "stats": {
+                    "completedDonations": completed_count,
+                    "badges": badges
+                }
+            }), 200
+    except Exception as e:
+        return jsonify({"status": "Error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PackagePlus, Clock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import BadgeShowcase from '../components/BadgeShowcase'; // Added Import
 
 const DonorDashboard = () => {
   const { user } = useAuth();
@@ -112,6 +113,11 @@ const DonorDashboard = () => {
         <h2>Donor Portal</h2>
         <p>Report surplus food to be collected by local NGOs.</p>
       </div>
+
+      {/* Gamification Component Rendered Here */}
+      {user && user.id && (
+        <BadgeShowcase donorId={user.id} />
+      )}
 
       <div className="donor-grid">
         <div className="card form-card">
