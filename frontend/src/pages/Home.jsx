@@ -1,8 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Leaf, ShieldCheck, HeartHandshake } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Home = () => {
+  const { user } = useAuth();
+  
   return (
     <div className="home-page fade-in">
       <div className="hero-section">
@@ -11,10 +14,10 @@ const Home = () => {
           Join our decentralized platform connecting restaurants, event organizers, and individuals directly with NGOs who can redistribute food to those in need.
         </p>
         <div className="hero-actions">
-          <Link to="/donor" className="btn btn-primary">
+          <Link to={user && user.role === 'donor' ? '/donor' : '/register?role=donor'} className="btn btn-primary">
             I Want to Donate <ArrowRight size={18} />
           </Link>
-          <Link to="/ngo" className="btn btn-secondary">
+          <Link to={user && user.role === 'ngo' ? '/ngo' : '/register?role=ngo'} className="btn btn-secondary">
             I am an NGO
           </Link>
         </div>

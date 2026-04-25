@@ -1,39 +1,109 @@
-import React, { useState } from 'react';
-import { PackagePlus, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { PackagePlus, Clock, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const DonorDashboard = () => {
-  const [donations, setDonations] = useState([
-    { id: 1, foodType: 'Baked Goods', quantity: '20 loaves', status: 'Pending', expiryState: 'Fresh' }
-  ]);
-
+  const { user } = useAuth();
+  const [donations, setDonations] = useState([]);
   const [formData, setFormData] = useState({
     foodType: '',
     quantity: '',
     location: '',
     expiryState: 'Fresh',
+    expiryDate: '',
     pickupTime: ''
   });
+
+  const fetchDonations = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/donations/donor/${user.id}`);
+      const data = await response.json();
+      if (response.ok) {
+        setDonations(data.donations);
+      }
+    } catch (error) {
+      console.error("Failed to fetch donations", error);
+    }
+  };
+
+  useEffect(() => {
+    if (user && user.id) {
+      fetchDonations();
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     setFormData({...formData, [e.target.name]: e.target.value});
   };
 
-  const handleDonate = (e) => {
+  const calculateExpiryState = (expiryDateString) => {
+    const now = new Date();
+    const expiry = new Date(expiryDateString);
+    const diffHours = (expiry - now) / (1000 * 60 * 60);
+
+    if (diffHours <= 0) return 'Expired';
+    if (diffHours <= 48) return 'Near Expiry';
+    return 'Fresh';
+  };
+
+  const handleDonate = async (e) => {
     e.preventDefault();
-    if (!formData.foodType || !formData.quantity) return;
+    if (!formData.foodType || !formData.quantity || !formData.expiryDate || !formData.location || !formData.pickupTime) {
+      alert("Please fill in all required fields, including Expiry Date, Location, and Pickup Time.");
+      return;
+    }
     
-    setDonations([
-      { 
-        id: donations.length + 1, 
-        foodType: formData.foodType, 
-        quantity: formData.quantity, 
-        status: 'Pending',
-        expiryState: formData.expiryState
-      },
-      ...donations
-    ]);
-    
-    setFormData({...formData, foodType: '', quantity: '', pickupTime: ''});
+    const computedExpiryState = calculateExpiryState(formData.expiryDate);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/donations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          donor_id: user.id,
+          food_type: formData.foodType,
+          quantity: formData.quantity,
+          location: formData.location,
+          expiry_state: computedExpiryState,
+          expiry_date: formData.expiryDate,
+          pickup_time: formData.pickupTime
+        })
+      });
+
+      if (response.ok) {
+        alert("Donation request submitted successfully! Classified as: " + computedExpiryState);
+        setFormData({
+          foodType: '', quantity: '', location: '', expiryDate: '', pickupTime: ''
+        });
+        fetchDonations();
+      } else {
+        const errorData = await response.json();
+        alert("Failed to submit request: " + (errorData.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error creating donation", error);
+      alert("Could not connect to the server. Is the backend running?");
+    }
+  };
+
+  const handleConfirmPickup = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/donations/${id}/confirm`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (response.ok) {
+        alert("Pickup has been confirmed to be a success!");
+        fetchDonations();
+      } else {
+        const errorData = await response.json();
+        alert("Failed to confirm: " + (errorData.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error confirming pickup", error);
+      alert("Could not connect to the server.");
+    }
   };
 
   return (
@@ -67,16 +137,12 @@ const DonorDashboard = () => {
 
             <div className="row">
               <div className="form-group">
-                <label>Food Condition (Critical)</label>
-                <select name="expiryState" value={formData.expiryState} onChange={handleChange}>
-                  <option value="Fresh">✅ Fresh Food</option>
-                  <option value="Near Expiry">⚠️ Near Expiry</option>
-                  <option value="Expired">❌ Expired (Send to Compost/Animal Shelter)</option>
-                </select>
+                <label>Exact Expiry Date & Time</label>
+                <input type="datetime-local" name="expiryDate" value={formData.expiryDate} onChange={handleChange} required />
               </div>
 
               <div className="form-group">
-                <label>Pickup By</label>
+                <label>Preferred Pickup Time</label>
                 <input type="time" name="pickupTime" value={formData.pickupTime} onChange={handleChange} required />
               </div>
             </div>
@@ -95,17 +161,28 @@ const DonorDashboard = () => {
               <p className="empty-state">No active donations. Report surplus food to get started.</p>
             ) : (
               donations.map((item) => (
-                <div key={item.id} className="donation-item">
-                  <div className="donation-info">
+                <div key={item.id} className="donation-item" style={{ flexWrap: 'wrap' }}>
+                  <div className="donation-info" style={{ flex: '1 1 100%' }}>
                     <h4>{item.foodType}</h4>
-                    <span className="qty">{item.quantity}</span>
+                    <span className="qty" style={{ display: 'block', fontSize: '0.9rem', color: '#666' }}>{item.quantity}</span>
+                    <span className="qty" style={{ display: 'block', fontSize: '0.85rem' }}>Expires: {item.expiryDate}</span>
+                    {item.ngoName && <span className="qty" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--primary-dark)' }}>NGO: {item.ngoName} {item.ngoPhone && `• Tel: ${item.ngoPhone}`}</span>}
                   </div>
-                  <div className="badges">
+                  <div className="badges" style={{ marginTop: '0.5rem' }}>
                     <span className={`badge state-${item.expiryState.replace(' ', '-').toLowerCase()}`}>
                       {item.expiryState}
                     </span>
-                    <span className="badge pending">{item.status}</span>
+                    <span className={`badge status-${item.status.toLowerCase()}`}>{item.status}</span>
                   </div>
+                  {item.status === 'Completed' && (
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+                      onClick={() => handleConfirmPickup(item.id)}
+                    >
+                      <CheckCircle size={16} /> Confirm Pickup Success
+                    </button>
+                  )}
                 </div>
               ))
             )}

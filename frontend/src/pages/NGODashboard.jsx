@@ -1,80 +1,144 @@
-import React, { useState } from 'react';
-import { MapPin, Truck, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Leaf, MapPin, Truck, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const NGODashboard = () => {
-  const [feed, setFeed] = useState([
-    { id: 101, donor: 'City Bakery', foodType: 'Baked Goods', quantity: '20 loaves', state: 'Fresh', location: '123 Main St', distance: '1.2 km', time: 'Avoid 5PM rush' },
-    { id: 102, donor: 'Grand Hotel', foodType: 'Buffet Rice', quantity: '100 servings', state: 'Near Expiry', location: '45 Hotel Ave', distance: '3.4 km', time: 'Urgent' },
-    { id: 103, donor: 'Fresh Mart', foodType: 'Rotten Veggies', quantity: '15 kg', state: 'Expired', location: '99 Market Rd', distance: '2.0 km', time: 'For Compost/Animals' },
-  ]);
+  const { user } = useAuth();
+  const [pendingDonations, setPendingDonations] = useState([]);
+  const [acceptedDonations, setAcceptedDonations] = useState([]);
 
-  const [accepted, setAccepted] = useState([]);
+  const fetchDonations = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/donations/ngo/${user.id}`);
+      const data = await response.json();
+      if (response.ok) {
+        setPendingDonations(data.donations.filter(d => d.status === 'Pending'));
+        setAcceptedDonations(data.donations.filter(d => d.status === 'Accepted' || d.status === 'Completed' || d.status === 'Confirmed'));
+      }
+    } catch (error) {
+      console.error("Failed to fetch donations", error);
+    }
+  };
 
-  const handleAccept = (request) => {
-    setFeed(feed.filter(item => item.id !== request.id));
-    setAccepted([...accepted, request]);
+  useEffect(() => {
+    if (user && user.id) {
+      fetchDonations();
+    }
+  }, [user]);
+
+  const handleAccept = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/donations/${id}/accept`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ngo_id: user.id })
+      });
+      if (response.ok) {
+        alert("Surplus food successfully accepted!");
+        fetchDonations();
+      } else {
+        const errorData = await response.json();
+        alert("Failed to accept: " + (errorData.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error accepting donation", error);
+      alert("Could not connect to the server.");
+    }
+  };
+
+  const handleComplete = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/donations/${id}/complete`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (response.ok) {
+        alert("Request marked as correctly picked up!");
+        fetchDonations();
+      } else {
+        const errorData = await response.json();
+        alert("Failed to mark as picked up: " + (errorData.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error completing pickup", error);
+      alert("Could not connect to the server.");
+    }
   };
 
   return (
     <div className="dashboard fade-in">
       <div className="dashboard-header">
-        <h2>NGO Portal</h2>
-        <p>Real-time feed of available surplus food donations in your sector.</p>
+        <h2>NGO Dashboard</h2>
+        <p>Browse available food donations and manage your pickups.</p>
       </div>
 
-      <div className="ngo-grid">
-        <div className="feed-column">
-          <h3 className="section-title">Available Donations</h3>
-          {feed.length === 0 ? (
-            <p className="empty-state">No donations currently available in your area. Waiting for donors...</p>
-          ) : (
-            feed.map((req) => (
-              <div key={req.id} className="request-card">
-                <div className="request-header">
-                  <h4>{req.donor}</h4>
-                  <span className={`badge state-${req.state.replace(' ', '-').toLowerCase()}`}>
-                      {req.state}
-                  </span>
+      <div className="donor-grid" style={{ gridTemplateColumns: 'minmax(300px, 1fr) minmax(300px, 1fr)' }}>
+        <div className="card list-card">
+          <div className="card-header">
+            <Leaf className="card-icon" />
+            <h3>Available Requests</h3>
+          </div>
+          <div className="donations-list">
+            {pendingDonations.length === 0 ? (
+              <p className="empty-state">No pending requests right now.</p>
+            ) : (
+              pendingDonations.map(req => (
+                <div key={req.id} className="donation-item" style={{ flexWrap: 'wrap' }}>
+                  <div className="donation-info" style={{ flex: '1 1 100%' }}>
+                    <h4>{req.foodType}</h4>
+                    <span className="qty" style={{ display: 'block', fontSize: '0.9rem', color: '#666' }}>{req.quantity} • by {req.donorName}</span>
+                    <span className="qty" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}><MapPin size={14}/> {req.location}</span>
+                    <span className="qty" style={{ display: 'block', fontSize: '0.85rem' }}>Expires: {req.expiryDate}</span>
+                    <span className="qty" style={{ display: 'block', fontSize: '0.85rem' }}>Pickup By: {req.pickupTime}</span>
+                  </div>
+                  <div className="badges" style={{ marginTop: '0.5rem', width: '100%', justifyContent: 'space-between' }}>
+                    <span className={`badge state-${req.expiryState.replace(' ', '-').toLowerCase()}`}>{req.expiryState}</span>
+                    <button className="btn btn-primary btn-sm" onClick={() => handleAccept(req.id)}>Accept Request</button>
+                  </div>
                 </div>
-                
-                <h2 className="food-title">{req.foodType}</h2>
-                <div className="request-details">
-                  <span><strong>Qty:</strong> {req.quantity}</span>
-                  <span><MapPin size={14}/> {req.location} ({req.distance})</span>
-                </div>
-                <div className="pickup-info">
-                  <strong>Pickup Instruction:</strong> {req.time}
-                </div>
-                
-                <button className="btn btn-primary full-width" onClick={() => handleAccept(req)}>
-                  <CheckCircle2 size={16}/> Accept & Schedule Pickup
-                </button>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
 
-        <div className="active-pickups-column">
-          <div className="card list-card">
-            <div className="card-header">
-              <Truck className="card-icon" />
-              <h3>My Scheduled Pickups</h3>
-            </div>
-            <div className="donations-list">
-              {accepted.length === 0 ? (
-                <p className="empty-state">No pickups scheduled yet.</p>
-              ) : (
-                accepted.map((item) => (
-                  <div key={item.id} className="donation-item pickup-item">
-                    <div className="donation-info">
-                      <h4>{item.donor}</h4>
-                      <span><MapPin size={12}/> {item.location}</span>
+        <div className="card list-card">
+          <div className="card-header">
+            <Truck className="card-icon" />
+            <h3>My Accepted Pickups</h3>
+          </div>
+          <div className="donations-list">
+            {acceptedDonations.length === 0 ? (
+               <p className="empty-state">You haven't accepted any requests yet.</p>
+            ) : (
+              acceptedDonations.map(req => (
+                <div key={req.id} className="donation-item" style={{ flexWrap: 'wrap', borderLeft: req.status === 'Completed' || req.status === 'Confirmed' ? '4px solid var(--primary)' : '4px solid var(--secondary)' }}>
+                  <div className="donation-info" style={{ flex: '1 1 100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ margin: 0 }}>{req.foodType}</h4>
+                      <span className={`badge status-${req.status.toLowerCase()}`}>{req.status}</span>
                     </div>
-                    <span className="badge in-transit">In Progress</span>
+                    <span className="qty" style={{ display: 'block', fontSize: '0.9rem', color: '#666' }}>{req.quantity} • from {req.donorName} {(req.status === 'Accepted' || req.status === 'Completed' || req.status === 'Confirmed') && req.donorPhone ? `• Tel: ${req.donorPhone}` : ''}</span>
+                    <span className="qty" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}><MapPin size={14}/> {req.location}</span>
+                    <span className="qty" style={{ display: 'block', fontSize: '0.85rem' }}>Pickup Expected: {req.pickupTime}</span>
                   </div>
-                ))
-              )}
-            </div>
+                  {req.status === 'Accepted' && (
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+                      onClick={() => handleComplete(req.id)}
+                    >
+                      <CheckCircle size={16} /> Mark as Picked Up
+                    </button>
+                  )}
+                  {req.status === 'Confirmed' && (
+                    <p style={{ marginTop: '0.5rem', width: '100%', textAlign: 'center', color: 'var(--primary-dark)', fontSize: '0.85rem' }}>
+                       Pickup officially verified by donor!
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
