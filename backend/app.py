@@ -386,5 +386,29 @@ def get_donor_stats(donor_id):
     finally:
         conn.close()
 
+@app.route('/api/donations/leaderboard', methods=['GET'])
+def get_leaderboard():
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"status": "Error", "message": "Database connection failed"}), 500
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT u.name, COUNT(*) as donation_count
+                FROM donations d
+                JOIN users u ON d.donor_id = u.id
+                WHERE d.status IN ('Completed', 'Confirmed')
+                GROUP BY u.id, u.name
+                ORDER BY donation_count DESC
+                LIMIT 10
+            """)
+            leaders = cur.fetchall()
+            leaderboard = [{"name": row[0], "donations": row[1]} for row in leaders]
+            return jsonify({"status": "Success", "leaderboard": leaderboard}), 200
+    except Exception as e:
+        return jsonify({"status": "Error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
