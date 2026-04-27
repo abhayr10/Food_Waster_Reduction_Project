@@ -18,7 +18,7 @@ const DonorDashboard = () => {
   const fetchDonations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/donations/donor/${user.id}`, {
+      const response = await fetch(`/api/donations/donor/${user.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -64,7 +64,7 @@ const DonorDashboard = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/donations', {
+      const response = await fetch('/api/donations', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ const DonorDashboard = () => {
   const handleConfirmPickup = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/donations/${id}/confirm`, {
+      const response = await fetch(`/api/donations/${id}/confirm`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',

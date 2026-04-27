@@ -10,7 +10,7 @@ const NGODashboard = () => {
   const fetchDonations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/donations/ngo/${user.id}`, {
+      const response = await fetch(`/api/donations/ngo/${user.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -34,7 +34,7 @@ const NGODashboard = () => {
   const handleAccept = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/donations/${id}/accept`, {
+      const response = await fetch(`/api/donations/${id}/accept`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -58,7 +58,7 @@ const NGODashboard = () => {
   const handleComplete = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/donations/${id}/complete`, {
+      const response = await fetch(`/api/donations/${id}/complete`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',

@@ -7,7 +7,7 @@ const Leaderboard = () => {
 
   useEffect(() => {
     // Fetch the top donors from the Flask backend
-    fetch('http://localhost:5000/api/donations/leaderboard')
+    fetch('/api/donations/leaderboard')
       .then(res => res.json())
       .then(data => {
         if (data.status === 'Success') {

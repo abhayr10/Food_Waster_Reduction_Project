@@ -28,7 +28,7 @@ const Register = () => {
         setError('');
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/register', {
+            const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
@@ -55,7 +55,7 @@ const Register = () => {
         e.preventDefault();
         setError('');
         try {
-            const response = await fetch('http://localhost:5000/api/auth/verify_otp', {
+            const response = await fetch('/api/auth/verify_otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: formData.email, otp }),
