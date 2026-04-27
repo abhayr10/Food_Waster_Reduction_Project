@@ -17,7 +17,12 @@ const DonorDashboard = () => {
 
   const fetchDonations = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/donations/donor/${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/donations/donor/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok) {
         setDonations(data.donations);
@@ -58,9 +63,13 @@ const DonorDashboard = () => {
     const computedExpiryState = calculateExpiryState(formData.expiryDate);
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/donations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           donor_id: user.id,
           food_type: formData.foodType,
@@ -90,9 +99,13 @@ const DonorDashboard = () => {
 
   const handleConfirmPickup = async (id) => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/donations/${id}/confirm`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({})
       });
       if (response.ok) {

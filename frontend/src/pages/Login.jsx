@@ -26,7 +26,7 @@ const Login = () => {
             const data = await response.json();
 
             if (response.ok) {
-                login(data.user);
+                login(data.user, data.token);
                 navigate(data.user.role === 'donor' ? '/donor' : '/ngo');
             } else {
                 setError(data.message || 'Login failed');

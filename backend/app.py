@@ -8,13 +8,19 @@ from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 import random
+import google.generativeai as genai
+import jwt
+from functools import wraps
+from datetime import timedelta
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 # Enable CORS for communication from React frontend
-CORS(app)
+# In production, set FRONTEND_URL to your Vercel domain to restrict access
+allowed_origins = os.environ.get("FRONTEND_URL", "*").split(",")
+CORS(app, origins=allowed_origins)
 
 # Database connection setup
 def get_db_connection():
@@ -70,6 +76,27 @@ def init_db():
 
 # Initialize DB on startup
 init_db()
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(" ")[1]
+            
+        if not token:
+            return jsonify({'status': 'Error', 'message': 'Authentication token is missing!'}), 401
+            
+        try:
+            secret = os.environ.get('SECRET_KEY', 'default_fallback_secret_change_me_in_prod')
+            data = jwt.decode(token, secret, algorithms=["HS256"])
+            current_user_id = data['user_id']
+        except Exception as e:
+            return jsonify({'status': 'Error', 'message': 'Token is invalid or expired!'}), 401
+            
+        return f(current_user_id, *args, **kwargs)
+    return decorated
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
@@ -178,9 +205,16 @@ def login():
             if not user[5]:
                 return jsonify({"status": "Error", "message": "Account not verified by email"}), 401
                 
+            secret = os.environ.get('SECRET_KEY', 'default_fallback_secret_change_me_in_prod')
+            token = jwt.encode({
+                'user_id': user[0],
+                'exp': datetime.now() + timedelta(hours=24)
+            }, secret, algorithm="HS256")
+                
             return jsonify({
                 "status": "Success", 
                 "message": "Logged in successfully",
+                "token": token,
                 "user": {"id": user[0], "name": user[1], "email": user[2], "role": user[4]}
             }), 200
     except Exception as e:
@@ -201,9 +235,11 @@ def test_db():
     return jsonify({"status": "Error", "message": "Database connection failed. Please check your credentials."}), 500
 
 @app.route('/api/donations', methods=['POST'])
-def create_donation():
+@token_required
+def create_donation(current_user_id):
     data = request.json
-    required_fields = ['donor_id', 'food_type', 'quantity', 'location', 'expiry_state', 'expiry_date', 'pickup_time']
+    required_fields = ['food_type', 'quantity', 'location', 'expiry_state', 'expiry_date', 'pickup_time']
+    data['donor_id'] = current_user_id
     if not all(field in data for field in required_fields):
         return jsonify({"status": "Error", "message": "Missing required fields"}), 400
         
@@ -250,7 +286,10 @@ def create_donation():
         conn.close()
 
 @app.route('/api/donations/donor/<int:donor_id>', methods=['GET'])
-def get_donor_donations(donor_id):
+@token_required
+def get_donor_donations(current_user_id, donor_id):
+    if current_user_id != donor_id:
+        return jsonify({"status": "Error", "message": "Unauthorized"}), 403
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "Error", "message": "Database connection failed"}), 500
@@ -294,7 +333,10 @@ def get_donor_donations(donor_id):
         conn.close()
 
 @app.route('/api/donations/ngo/<int:ngo_id>', methods=['GET'])
-def get_ngo_donations(ngo_id):
+@token_required
+def get_ngo_donations(current_user_id, ngo_id):
+    if current_user_id != ngo_id:
+        return jsonify({"status": "Error", "message": "Unauthorized"}), 403
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "Error", "message": "Database connection failed"}), 500
@@ -338,7 +380,8 @@ def get_ngo_donations(ngo_id):
         conn.close()
 
 @app.route('/api/donations/<int:donation_id>/<action>', methods=['PUT'])
-def update_donation_status(donation_id, action):
+@token_required
+def update_donation_status(current_user_id, donation_id, action):
     data = request.get_json(silent=True) or {}
     conn = get_db_connection()
     if not conn:
@@ -347,9 +390,7 @@ def update_donation_status(donation_id, action):
     try:
         with conn.cursor() as cur:
             if action == 'accept':
-                ngo_id = data.get('ngo_id')
-                if not ngo_id:
-                    return jsonify({"status": "Error", "message": "NGO ID required"}), 400
+                ngo_id = current_user_id
                 cur.execute("UPDATE donations SET status = 'Accepted', ngo_id = %s WHERE id = %s AND status = 'Pending'", (ngo_id, donation_id))
             elif action == 'complete':
                 cur.execute("UPDATE donations SET status = 'Completed' WHERE id = %s AND status = 'Accepted'", (donation_id,))
@@ -369,7 +410,10 @@ def update_donation_status(donation_id, action):
         conn.close()
 
 @app.route('/api/donations/donor/<int:donor_id>/stats', methods=['GET'])
-def get_donor_stats(donor_id):
+@token_required
+def get_donor_stats(current_user_id, donor_id):
+    if current_user_id != donor_id:
+        return jsonify({"status": "Error", "message": "Unauthorized"}), 403
     conn = get_db_connection()
     if not conn:
         return jsonify({"status": "Error", "message": "Database connection failed"}), 500
@@ -437,6 +481,34 @@ def get_leaderboard():
         return jsonify({"status": "Error", "message": str(e)}), 500
     finally:
         conn.close()
+
+@app.route('/api/chatbot', methods=['POST'])
+def chatbot_endpoint():
+    data = request.json
+    if not data or not data.get('message'):
+        return jsonify({"status": "Error", "message": "Missing message"}), 400
+    
+    user_message = data['message']
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return jsonify({"status": "Error", "message": "Gemini API key not configured on server"}), 500
+        
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        prompt = f"""You are a helpful and concise AI assistant for a local food waste reduction platform named FoodRescue. 
+        The user asks: "{user_message}". 
+        Please provide a concise, highly accurate, and friendly answer strictly focusing on:
+        - general food hygiene/safety.
+        - estimating how long this specific food stays fresh.
+        - giving practical advice on what can be done with it if it is expired (e.g. repacking, animal shelters, or composting).
+        Do not hallucinate facts if you do not know. Keep your response under 100 words total. Format with emojis where helpful!"""
+        
+        response = model.generate_content(prompt)
+        return jsonify({"status": "Success", "reply": response.text}), 200
+    except Exception as e:
+        return jsonify({"status": "Error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

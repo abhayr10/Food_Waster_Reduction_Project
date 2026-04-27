@@ -9,7 +9,12 @@ const NGODashboard = () => {
 
   const fetchDonations = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/donations/ngo/${user.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/donations/ngo/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok) {
         setPendingDonations(data.donations.filter(d => d.status === 'Pending'));
@@ -28,9 +33,13 @@ const NGODashboard = () => {
 
   const handleAccept = async (id) => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/donations/${id}/accept`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ ngo_id: user.id })
       });
       if (response.ok) {
@@ -48,9 +57,13 @@ const NGODashboard = () => {
 
   const handleComplete = async (id) => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/donations/${id}/complete`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({})
       });
       if (response.ok) {

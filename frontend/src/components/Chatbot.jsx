@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot } from 'lucide-react';
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import ReactMarkdown from 'react-markdown';
 
 const Chatbot = () => {
@@ -33,24 +32,19 @@ const Chatbot = () => {
     setIsTyping(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) throw new Error("Missing API Key");
+      const response = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || data.status === 'Error') {
+        throw new Error(data.message || 'Failed to fetch from backend');
+      }
 
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-      const prompt = `You are a helpful and concise AI assistant for a local food waste reduction platform named FoodRescue. 
-      The user asks: "${userMessage}". 
-      Please provide a concise, highly accurate, and friendly answer strictly focusing on:
-      - general food hygiene/safety.
-      - estimating how long this specific food stays fresh.
-      - giving practical advice on what can be done with it if it is expired (e.g. repacking, animal shelters, or composting).
-      Do not hallucinate facts if you do not know. Keep your response under 100 words total. Format with emojis where helpful!`;
-
-      const result = await model.generateContent(prompt);
-      const text = await result.response.text();
-
-      setMessages(prev => [...prev, { text: text, sender: 'bot' }]);
+      setMessages(prev => [...prev, { text: data.reply, sender: 'bot' }]);
     } catch (error) {
       console.error("Chat error:", error);
       setMessages(prev => [...prev, { text: `Error: ${error.message || JSON.stringify(error)}`, sender: 'bot' }]);

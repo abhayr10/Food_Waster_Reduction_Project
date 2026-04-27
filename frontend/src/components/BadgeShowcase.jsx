@@ -16,7 +16,12 @@ const BadgeShowcase = ({ donorId }) => {
 
     const fetchStats = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/donations/donor/${donorId}/stats`);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5000/api/donations/donor/${donorId}/stats`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         const data = await response.json();
         if (response.ok && data.status === 'Success') {
           setStats(data.stats);
