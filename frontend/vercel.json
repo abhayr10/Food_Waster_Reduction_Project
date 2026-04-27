@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://food-waster-reduction-project.onrender.com"
+      "destination": "https://food-waster-reduction-project.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
