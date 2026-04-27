@@ -21,12 +21,20 @@ const Home = () => {
             Join our decentralized platform connecting restaurants, event organizers, and individuals directly with NGOs who can redistribute food to those in need.
           </p>
           <div className="hero-actions">
-            <Link to={user && user.role === 'donor' ? '/donor' : '/register?role=donor'} className="btn btn-primary">
-              I Want to Donate <ArrowRight size={18} />
-            </Link>
-            <Link to={user && user.role === 'ngo' ? '/ngo' : '/register?role=ngo'} className="btn btn-secondary">
-              I am an NGO
-            </Link>
+            {user ? (
+              <Link to={user.role === 'donor' ? '/donor' : '/ngo'} className="btn btn-primary">
+                Go to My Dashboard <ArrowRight size={18} />
+              </Link>
+            ) : (
+              <>
+                <Link to="/register?role=donor" className="btn btn-primary">
+                  I Want to Donate <ArrowRight size={18} />
+                </Link>
+                <Link to="/register?role=ngo" className="btn btn-secondary">
+                  I am an NGO
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

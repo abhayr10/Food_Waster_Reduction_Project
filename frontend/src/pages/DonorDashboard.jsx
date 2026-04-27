@@ -42,9 +42,10 @@ const DonorDashboard = () => {
     const expiry = new Date(expiryDateString);
     const diffHours = (expiry - now) / (1000 * 60 * 60);
 
-    if (diffHours <= 0) return 'Expired';
-    if (diffHours <= 48) return 'Near Expiry';
-    return 'Fresh';
+    if (diffHours > 48) return 'Fresh';
+    if (diffHours > 0) return 'Near Expiry';
+    if (diffHours >= -24) return 'Safe for Animal Feed';
+    return 'Compost Only';
   };
 
   const handleDonate = async (e) => {
@@ -175,11 +176,16 @@ const DonorDashboard = () => {
                     {item.ngoName && <span className="qty" style={{ display: 'block', fontSize: '0.85rem', color: 'var(--primary-dark)' }}>NGO: {item.ngoName} {item.ngoPhone && `• Tel: ${item.ngoPhone}`}</span>}
                   </div>
                   <div className="badges" style={{ marginTop: '0.5rem' }}>
-                    <span className={`badge state-${item.expiryState.replace(' ', '-').toLowerCase()}`}>
+                    <span className={`badge state-${item.expiryState.replaceAll(' ', '-').toLowerCase()}`}>
                       {item.expiryState}
                     </span>
                     <span className={`badge status-${item.status.toLowerCase()}`}>{item.status}</span>
                   </div>
+                  {item.expiryState === 'Compost Only' && (
+                    <div style={{ color: '#d32f2f', fontWeight: 'bold', marginTop: '0.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      ⚠️ URGENT: Severely expired. Do NOT use for animal feed. Compost only.
+                    </div>
+                  )}
                   {item.status === 'Completed' && (
                     <button 
                       className="btn btn-primary" 

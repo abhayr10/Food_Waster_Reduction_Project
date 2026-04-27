@@ -519,7 +519,8 @@ input, select {
 }
 .state-fresh { background: #d1fae5; color: #065f46; }
 .state-near-expiry { background: #fef3c7; color: #92400e; }
-.state-expired { background: #fee2e2; color: #991b1b; }
+.state-safe-for-animal-feed { background: #ffedd5; color: #9a3412; }
+.state-compost-only { background: #fee2e2; color: #991b1b; }
 .pending { border: 1px solid #ccc; color: #666; }
 .in-transit { background: #e0e7ff; color: #3730a3; }
 

@@ -93,9 +93,14 @@ const NGODashboard = () => {
                     <span className="qty" style={{ display: 'block', fontSize: '0.85rem' }}>Pickup By: {req.pickupTime}</span>
                   </div>
                   <div className="badges" style={{ marginTop: '0.5rem', width: '100%', justifyContent: 'space-between' }}>
-                    <span className={`badge state-${req.expiryState.replace(' ', '-').toLowerCase()}`}>{req.expiryState}</span>
+                    <span className={`badge state-${req.expiryState.replaceAll(' ', '-').toLowerCase()}`}>{req.expiryState}</span>
                     <button className="btn btn-primary btn-sm" onClick={() => handleAccept(req.id)}>Accept Request</button>
                   </div>
+                  {req.expiryState === 'Compost Only' && (
+                    <div style={{ color: '#d32f2f', fontWeight: 'bold', marginTop: '0.5rem', fontSize: '0.85rem', width: '100%' }}>
+                      ⚠️ URGENT: Severely expired. Do NOT use for animal feed. Compost only.
+                    </div>
+                  )}
                 </div>
               ))
             )}

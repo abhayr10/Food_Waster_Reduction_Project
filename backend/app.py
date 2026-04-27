@@ -218,8 +218,32 @@ def create_donation():
                 VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
             """, (data['donor_id'], data['food_type'], data['quantity'], data['location'], data['expiry_state'], data['expiry_date'], data['pickup_time']))
             new_id = cur.fetchone()[0]
+            
+            # Fetch all NGOs to notify
+            cur.execute("SELECT email FROM users WHERE role = 'ngo'")
+            ngo_records = cur.fetchall()
             conn.commit()
-            return jsonify({"status": "Success", "message": "Donation created", "id": new_id}), 201
+
+            # Send email notifications securely
+            sender_email = os.environ.get("MAIL_USERNAME")
+            sender_pass = os.environ.get("MAIL_PASSWORD")
+            if sender_email and sender_pass and ngo_records:
+                try:
+                    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                        server.login(sender_email, sender_pass)
+                        for record in ngo_records:
+                            ngo_email = record[0]
+                            msg = MIMEText(f"A new donation for '{data['food_type']}' ({data['quantity']}) has been posted near '{data['location']}'. Pickup Time: {data['pickup_time']}. Please log in to your dashboard to accept the request.")
+                            msg['Subject'] = 'FoodRescue: New Donation Available!'
+                            msg['From'] = sender_email
+                            msg['To'] = ngo_email
+                            server.send_message(msg)
+                except Exception as e:
+                    print("Failed to send NGO notifications via SMTP:", e)
+            else:
+                print(f"\n[MOCK EMAIL NOTIFICATION] New donation alert sent to NGOs: {[r[0] for r in ngo_records]}\n")
+
+            return jsonify({"status": "Success", "message": "Donation created and NGOs notified", "id": new_id}), 201
     except Exception as e:
         return jsonify({"status": "Error", "message": str(e)}), 500
     finally:
@@ -248,13 +272,15 @@ def get_donor_donations(donor_id):
                 expiry_state = row[4]
                 if expiry_dt:
                     now = datetime.now()
-                    diff_days = (expiry_dt - now).total_seconds() / (3600 * 24)
-                    if diff_days <= 0:
-                        expiry_state = 'Expired'
-                    elif diff_days <= 2:
-                        expiry_state = 'Near Expiry'
-                    else:
+                    diff_hours = (expiry_dt - now).total_seconds() / 3600
+                    if diff_hours > 48:
                         expiry_state = 'Fresh'
+                    elif diff_hours > 0:
+                        expiry_state = 'Near Expiry'
+                    elif diff_hours >= -24:
+                        expiry_state = 'Safe for Animal Feed'
+                    else:
+                        expiry_state = 'Compost Only'
                         
                 result.append({
                     "id": row[0], "foodType": row[1], "quantity": row[2], "location": row[3],
@@ -290,13 +316,15 @@ def get_ngo_donations(ngo_id):
                 expiry_state = row[4]
                 if expiry_dt:
                     now = datetime.now()
-                    diff_days = (expiry_dt - now).total_seconds() / (3600 * 24)
-                    if diff_days <= 0:
-                        expiry_state = 'Expired'
-                    elif diff_days <= 2:
-                        expiry_state = 'Near Expiry'
-                    else:
+                    diff_hours = (expiry_dt - now).total_seconds() / 3600
+                    if diff_hours > 48:
                         expiry_state = 'Fresh'
+                    elif diff_hours > 0:
+                        expiry_state = 'Near Expiry'
+                    elif diff_hours >= -24:
+                        expiry_state = 'Safe for Animal Feed'
+                    else:
+                        expiry_state = 'Compost Only'
                         
                 result.append({
                     "id": row[0], "foodType": row[1], "quantity": row[2], "location": row[3],
